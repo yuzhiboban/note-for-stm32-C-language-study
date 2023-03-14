@@ -1,0 +1,5 @@
+常规开局，开启时钟，设置GPIO，。
+因为要使用AFIO_EXTICRX寄存器，所以需要打开AFIO时钟。
+然后使用GPIO_EXTILineConfig设置AFIO_EXTICRX相应的寄存器。
+设置Exti的寄存器，主要是根据类型，选择EMR寄存器或者IMR寄存器，然后选择上升沿或者下降沿。（使用EXTI_Init函数）。
+设置NVIC中的寄存器，主要设置优先级和NVIC_ISER寄存器.NVIC_Init()

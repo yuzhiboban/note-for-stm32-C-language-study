@@ -3,3 +3,4 @@
 然后使用GPIO_EXTILineConfig设置AFIO_EXTICRX相应的寄存器。
 设置Exti的寄存器，主要是根据类型，选择EMR寄存器或者IMR寄存器，然后选择上升沿或者下降沿。（使用EXTI_Init函数）。
 设置NVIC中的寄存器，主要设置优先级和NVIC_ISER寄存器.NVIC_Init()
+整个系统执行过程中，只设置一次中断分组。（NVIC_PriorityGroupConfig只是对一个寄存器操作。多次操作以最后一次设置为准。

@@ -1,0 +1,2 @@
+在单片机中进行输出重定向，需要先勾选魔术棒的use microlib,然后#include"stdio.h"
+需要注意的是，在UCOS iii 系统中，printf可能导致程序的运行出现问题。

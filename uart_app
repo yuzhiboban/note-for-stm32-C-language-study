@@ -1,0 +1,111 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <termios.h>
+#include <pthread.h>
+#include <signal.h>
+#include <errno.h>
+#include <sys/time.h>
+
+#define SERIAL_DEVICE "/dev/ttymxc0"  // 串口设备
+#define BUFFER_SIZE 32               // 数据缓冲区大小
+
+char output[BUFFER_SIZE];            // 输出缓冲区
+volatile int serial_fd = -1;         // 串口文件描述符
+pthread_t write_thread;              // 写线程标识符
+
+// 配置串口
+int configure_serial(int fd) {
+    struct termios tty;
+
+    if (tcgetattr(fd, &tty) != 0) {
+        perror("tcgetattr");
+        return -1;
+    }
+
+    // 配置波特率
+    cfsetispeed(&tty, B115200);
+    cfsetospeed(&tty, B115200);
+
+    // 配置串口参数
+    tty.c_cflag |= (CLOCAL | CREAD);
+    tty.c_cflag &= ~CSIZE;
+    tty.c_cflag |= CS8;         // 8 数据位
+    tty.c_cflag &= ~PARENB;     // 无校验
+    tty.c_cflag &= ~CSTOPB;     // 1 停止位
+    tty.c_cflag &= ~CRTSCTS;    // 无硬件流控
+
+    // 配置为原始模式
+    tty.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG);
+    tty.c_iflag &= ~(IXON | IXOFF | IXANY);
+    tty.c_oflag &= ~OPOST;
+
+    tty.c_cc[VMIN] = 1;   // 至少读取 1 个字符
+    tty.c_cc[VTIME] = 0;  // 无超时
+
+    if (tcsetattr(fd, TCSANOW, &tty) != 0) {
+        perror("tcsetattr");
+        return -1;
+    }
+
+    return 0;
+}
+
+// 写数据线程
+void *serial_write_thread(void *arg) {
+    while (1) {
+        // 写入数据到串口
+        ssize_t bytes_written = write(serial_fd, output, strlen(output));
+        if (bytes_written < 0) {
+            perror("write");
+        } else {
+            printf("Written %zd bytes: %s\n", bytes_written, output);
+        }
+
+        // 每隔 40 毫秒写入一次
+        usleep(40000); // 40 毫秒
+    }
+
+    return NULL;
+}
+
+int main() {
+    // 初始化输出缓冲区
+    snprintf(output, BUFFER_SIZE, "Hello, UART!\n");
+
+    // 打开串口设备
+    serial_fd = open(SERIAL_DEVICE, O_RDWR | O_NOCTTY | O_NONBLOCK);
+    if (serial_fd < 0) {
+        perror("open");
+        return 1;
+    }
+
+    // 配置串口
+    if (configure_serial(serial_fd) < 0) {
+        close(serial_fd);
+        return 1;
+    }
+
+    // 创建写线程
+    if (pthread_create(&write_thread, NULL, serial_write_thread, NULL) != 0) {
+        perror("pthread_create");
+        close(serial_fd);
+        return 1;
+    }
+
+    printf("Main thread is running. Press Ctrl+C to exit.\n");
+
+    // 主线程可以进行其他任务
+    while (1) {
+        sleep(1);
+    }
+
+    // 通常不会到达这里，关闭资源
+    pthread_cancel(write_thread);
+    pthread_join(write_thread, NULL);
+    close(serial_fd);
+
+    return 0;
+}
